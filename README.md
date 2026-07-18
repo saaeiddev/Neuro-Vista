@@ -1,6 +1,6 @@
 # NeuroVista – UI/UX Design Concept
 
-NeuroVista is a futuristic UI/UX design concept focused on neuroscience education and brain exploration. This project showcases a modern user experience built with a dark interface, Liquid Glass aesthetics, and Apple's latest design language.
+NeuroVista is a futuristic UI/UX design concept focused on neuroscience education and brain exploration. This project showcases a modern user experience built with a dark interface, Liquid Glass aesthetics, and contemporary Apple-inspired design principles.
 
 ## Project Includes
 
