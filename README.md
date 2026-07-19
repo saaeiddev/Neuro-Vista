@@ -16,7 +16,7 @@ NeuroVista is a futuristic UI/UX design concept focused on neuroscience educatio
 
 ### Apple Watch Version
 
-<img src="neuro vista iphone.png" alt="Apple Watch Version" width="100%">
+<img src="neuro vista apple watch final.png" alt="Apple Watch Version" width="100%">
 
 
 ## Project Includes
