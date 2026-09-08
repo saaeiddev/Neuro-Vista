@@ -3,124 +3,75 @@ from pathlib import Path
 p = Path('index.html')
 s = p.read_text()
 
-three_import = "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';"
-loader_import = "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
-draco_import = "import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/DRACOLoader.js?module';"
+marker = '<!-- NEUROVISTA_MODEL_VIEWER_V3 -->'
+if marker not in s:
+    css = r'''
+<style>
+.brain-canvas{position:absolute;inset:0;overflow:hidden}
+.brain-canvas > canvas{opacity:0!important;pointer-events:none!important}
+.nv-real-brain{position:absolute;inset:0;width:100%;height:100%;display:block;background:transparent;--poster-color:transparent;filter:drop-shadow(0 0 28px rgba(65,205,255,.18));z-index:3}
+.nv-real-brain::part(default-progress-bar){display:none}
+</style>
+'''
+    js = r'''
+<script type="module" src="https://unpkg.com/@google/model-viewer@4.1.0/dist/model-viewer.min.js"></script>
+<script>
+(function(){
+  const palette = [
+    [0.20,0.71,1.00,1.0],
+    [0.33,0.94,0.70,1.0],
+    [1.00,0.69,0.17,1.0],
+    [0.66,0.42,1.00,1.0],
+    [1.00,0.52,0.72,1.0],
+    [0.26,0.90,1.00,1.0]
+  ];
 
-if 'GLTFLoader' not in s:
-    s = s.replace(three_import, three_import + '\n' + loader_import + '\n' + draco_import)
-else:
-    s = s.replace("import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';", loader_import)
-    if 'DRACOLoader' not in s:
-        s = s.replace(loader_import, loader_import + '\n' + draco_import)
+  function colorize(mv){
+    try{
+      const mats = mv.model && mv.model.materials ? mv.model.materials : [];
+      mats.forEach((mat,i)=>{
+        const c = palette[i % palette.length];
+        if(mat && mat.pbrMetallicRoughness){
+          mat.pbrMetallicRoughness.setBaseColorFactor(c);
+          mat.pbrMetallicRoughness.setMetallicFactor(0.02);
+          mat.pbrMetallicRoughness.setRoughnessFactor(0.48);
+        }
+      });
+    }catch(e){ console.warn('NeuroVista material colorization skipped', e); }
+  }
 
-marker = "this.group=new THREE.Group();this.group.rotation.set(.08,-.12,0);this.scene.add(this.group);"
-start = s.find(marker)
-if start != -1:
-    after = start + len(marker)
-    shell_idx = s.find('const shell=new THREE.MeshPhysicalMaterial', after)
-    if shell_idx != -1:
-        prefix = s[:after]
-        suffix = s[shell_idx:]
-        inject = """
-this.realBrainModel=false;
-this.regionMeshes={};
-const draco=new DRACOLoader();
-draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/libs/draco/');
-draco.preload();
-const loader=new GLTFLoader();
-loader.setDRACOLoader(draco);
-loader.load('assets/brain.glb',g=>{
-  const root=g.scene;
-  root.name='AnatomicalBrain';
-
-  // Keep the procedural brain visible until the real model is fully decoded.
-  // Once ready, replace the fallback instead of risking an empty viewer.
-  this.group.children.forEach(c=>{c.visible=false});
-  this.group.add(root);
-  this.realBrainModel=true;
-
-  root.updateMatrixWorld(true);
-  const box0=new THREE.Box3().setFromObject(root);
-  const size0=box0.getSize(new THREE.Vector3());
-  const center0=box0.getCenter(new THREE.Vector3());
-  root.position.sub(center0);
-  const scale=2.85/Math.max(size0.x,size0.y,size0.z);
-  root.scale.setScalar(scale);
-  root.rotation.set(.06,-.34,0);
-  root.updateMatrixWorld(true);
-
-  const all=[];
-  root.traverse(o=>{if(o.isMesh){
-    if(o.geometry.computeBoundingBox)o.geometry.computeBoundingBox();
-    const c=o.geometry.boundingBox?o.geometry.boundingBox.getCenter(new THREE.Vector3()):new THREE.Vector3();
-    o.localToWorld(c);
-    all.push({o:o,c:c,name:(o.name+' '+((o.parent&&o.parent.name)||'')).toLowerCase()});
-  }});
-
-  const bbox=new THREE.Box3().setFromObject(root);
-  const bsize=bbox.getSize(new THREE.Vector3());
-  const bmin=bbox.min;
-  const norm=v=>new THREE.Vector3((v.x-bmin.x)/(bsize.x||1),(v.y-bmin.y)/(bsize.y||1),(v.z-bmin.z)/(bsize.z||1));
-  const colors={
-    'Frontal Lobe':0x34b6ff,
-    'Parietal Lobe':0x55efb3,
-    'Temporal Lobe':0xffb12b,
-    'Occipital Lobe':0xa96cff,
-    'Cerebellum':0xff85b8,
-    'Brain Stem':0x43e6ff
-  };
-  const byName=n=>{
-    if(/frontal|precentral|orbitofrontal|frontopolar/.test(n))return 'Frontal Lobe';
-    if(/parietal|postcentral|precuneus|supramarginal|angular gyrus/.test(n))return 'Parietal Lobe';
-    if(/temporal|hippocamp|amygdal|fusiform/.test(n))return 'Temporal Lobe';
-    if(/occipital|calcarine|cuneus|lingual/.test(n))return 'Occipital Lobe';
-    if(/cerebell|vermis/.test(n))return 'Cerebellum';
-    if(/brain.?stem|medulla|pons|midbrain|mesenceph|peduncle/.test(n))return 'Brain Stem';
-    return null;
-  };
-  const byPosition=v=>{
-    const n=norm(v);
-    if(n.y<.28&&n.z<.58)return 'Cerebellum';
-    if(n.y<.30&&n.z>=.58)return 'Brain Stem';
-    if(n.z>.66)return 'Frontal Lobe';
-    if(n.z<.28)return 'Occipital Lobe';
-    if(n.y<.48)return 'Temporal Lobe';
-    return 'Parietal Lobe';
-  };
-
-  this.meshes={};
-  all.forEach(item=>{
-    const o=item.o;
-    const region=byName(item.name)||byPosition(item.c);
-    const col=new THREE.Color(colors[region]);
-    o.material=new THREE.MeshPhysicalMaterial({
-      color:col,
-      emissive:col,
-      emissiveIntensity:.10,
-      roughness:.40,
-      metalness:.01,
-      clearcoat:.35,
-      clearcoatRoughness:.28,
-      transparent:true,
-      opacity:.94,
-      side:THREE.DoubleSide
+  function mount(){
+    document.querySelectorAll('.brain-canvas').forEach((host)=>{
+      if(host.querySelector('.nv-real-brain')) return;
+      const mv = document.createElement('model-viewer');
+      mv.className = 'nv-real-brain';
+      mv.setAttribute('src','/Neuro-Vista/assets/brain.glb?v=15');
+      mv.setAttribute('camera-controls','');
+      mv.setAttribute('auto-rotate','');
+      mv.setAttribute('rotation-per-second','10deg');
+      mv.setAttribute('interaction-prompt','none');
+      mv.setAttribute('shadow-intensity','0');
+      mv.setAttribute('environment-image','neutral');
+      mv.setAttribute('exposure','1.05');
+      mv.setAttribute('camera-orbit','0deg 78deg 2.4m');
+      mv.setAttribute('min-camera-orbit','auto auto 1.35m');
+      mv.setAttribute('max-camera-orbit','auto auto 4.5m');
+      mv.setAttribute('field-of-view','28deg');
+      mv.setAttribute('touch-action','pan-y');
+      mv.addEventListener('load',()=>colorize(mv));
+      host.appendChild(mv);
     });
-    o.userData.region=region;
-    if(!this.regionMeshes[region])this.regionMeshes[region]=[];
-    this.regionMeshes[region].push(o);
-    if(!this.meshes[region])this.meshes[region]=o;
-  });
-},undefined,e=>{
-  console.error('Brain model failed to load',e);
-  this.realBrainModel=false;
-});
-"""
-        # Do NOT disable the procedural model. It acts as a visible fallback until
-        # the Draco-compressed anatomical GLB has actually loaded successfully.
-        s = prefix + inject + suffix
+  }
 
-s = s.replace("const h=this.ray.intersectObjects(Object.values(this.meshes),false)[0];this.hover=h?.object.userData.region||null;", "const hitTargets=this.regionMeshes&&Object.keys(this.regionMeshes).length?Object.values(this.regionMeshes).flat():Object.values(this.meshes);const h=this.ray.intersectObjects(hitTargets,false)[0];this.hover=h?.object.userData.region||null;")
-s = s.replace('active?.83:dim?.25:.54','active ? .83 : dim ? .25 : .54')
-s = s.replace('active?.78:.18','active ? .78 : .18')
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mount);
+  else mount();
+  document.addEventListener('click',()=>setTimeout(mount,80));
+  const mo=new MutationObserver(()=>mount());
+  mo.observe(document.documentElement,{subtree:true,childList:true});
+})();
+</script>
+'''
+    s = s.replace('</head>', css + '\n' + marker + '\n</head>')
+    s = s.replace('</body>', js + '\n</body>')
+
 p.write_text(s)
