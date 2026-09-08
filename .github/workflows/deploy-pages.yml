@@ -26,7 +26,26 @@ jobs:
 
       - name: Refine anatomical 3D brain
         run: |
-          python -c "from pathlib import Path; p=Path('index.html'); s=p.read_text(); s=s.replace('return Math.sin(x*8.3+y*3.7+z*5.1)*.045+Math.sin(x*18.1-y*7.3+z*11.9)*.022','return Math.sin(x*8.3+y*3.7+z*5.1)*.075+Math.sin(x*18.1-y*7.3+z*11.9)*.038+Math.sin(x*31.0+y*15.0-z*9.0)*.018'); s=s.replace('x=(x*(.86+n))*side+side*.18;y=y*(1.03+n*.8)+.14;z=z*(1.12+n);','x=(x*(.72+n*.72))*side+side*.30;y=y*(.90+n*.42)+.10;z=z*(1.18+n*.38);if(y<-.48)y=-.48+(y+.48)*.55;'); s=s.replace("['Frontal Lobe',[-.58,.24,.48],[.78,.86,.78]],['Parietal Lobe', [.42,.56,.30],[.70,.65,.76]],['Temporal Lobe',[-.03,-.28,.56],[.78,.45,.68]],['Occipital Lobe',[.52,.08,-.55],[.48,.67,.52]],['Cerebellum',[.38,-.58,-.55],[.48,.34,.43]],['Brain Stem',[.02,-.92,-.12],[.23,.48,.22]]","['Frontal Lobe',[-.46,.20,.64],[.62,.70,.56]],['Parietal Lobe',[.32,.50,.16],[.56,.54,.62]],['Temporal Lobe',[-.40,-.28,.25],[.58,.34,.54]],['Occipital Lobe',[.34,.10,-.72],[.40,.50,.38]],['Cerebellum',[.22,-.62,-.66],[.40,.28,.36]],['Brain Stem',[.02,-.88,-.20],[.16,.44,.15]]"); s=s.replace('active?.83:dim?.25:.54','active ? .83 : dim ? .25 : .54').replace('active?.78:.18','active ? .78 : .18'); p.write_text(s)"
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          s = s.replace(
+              "return Math.sin(x*8.3+y*3.7+z*5.1)*.045+Math.sin(x*18.1-y*7.3+z*11.9)*.022",
+              "return Math.sin(x*8.3+y*3.7+z*5.1)*.075+Math.sin(x*18.1-y*7.3+z*11.9)*.038+Math.sin(x*31.0+y*15.0-z*9.0)*.018"
+          )
+          s = s.replace(
+              "x=(x*(.86+n))*side+side*.18;y=y*(1.03+n*.8)+.14;z=z*(1.12+n);",
+              "x=(x*(.72+n*.72))*side+side*.30;y=y*(.90+n*.42)+.10;z=z*(1.18+n*.38);if(y<-.48)y=-.48+(y+.48)*.55;"
+          )
+          s = s.replace(
+              "['Frontal Lobe',[-.58,.24,.48],[.78,.86,.78]],['Parietal Lobe', [.42,.56,.30],[.70,.65,.76]],['Temporal Lobe',[-.03,-.28,.56],[.78,.45,.68]],['Occipital Lobe',[.52,.08,-.55],[.48,.67,.52]],['Cerebellum',[.38,-.58,-.55],[.48,.34,.43]],['Brain Stem',[.02,-.92,-.12],[.23,.48,.22]]",
+              "['Frontal Lobe',[-.46,.20,.64],[.62,.70,.56]],['Parietal Lobe',[.32,.50,.16],[.56,.54,.62]],['Temporal Lobe',[-.40,-.28,.25],[.58,.34,.54]],['Occipital Lobe',[.34,.10,-.72],[.40,.50,.38]],['Cerebellum',[.22,-.62,-.66],[.40,.28,.36]],['Brain Stem',[.02,-.88,-.20],[.16,.44,.15]]"
+          )
+          s = s.replace('active?.83:dim?.25:.54', 'active ? .83 : dim ? .25 : .54')
+          s = s.replace('active?.78:.18', 'active ? .78 : .18')
+          p.write_text(s)
+          PY
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
