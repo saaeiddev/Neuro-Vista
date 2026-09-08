@@ -24,9 +24,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Prepare anatomical brain
+      - name: Prepare stable anatomical brain
         run: |
-          python scripts/prepare_brain.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          s = s.replace(
+              "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';",
+              "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
+          )
+          if "GLTFLoader" not in s:
+              s = s.replace(
+                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';",
+                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';\nimport { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
+              )
+          marker = "this.group=new THREE.Group();this.group.rotation.set(.08,-.12,0);this.scene.add(this.group);"
+          if marker in s and "realBrainModel" not in s:
+              inject = marker + "\nthis.realBrainModel=true;const loader=new GLTFLoader();loader.load('assets/brain.glb',g=>{const root=g.scene;root.name='AnatomicalBrain';const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());root.position.sub(center);const scale=2.65/Math.max(size.x,size.y,size.z);root.scale.setScalar(scale);root.rotation.set(.05,-.35,0);this.group.add(root);const palette=[0x35b7ff,0x58efb5,0xffb33b,0xaa70ff,0xff86b9,0x45e6ff];let idx=0;root.traverse(o=>{if(o.isMesh){const c=palette[idx++%palette.length];o.material=new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:.04,roughness:.58,metalness:.0,transparent:false});}});},undefined,e=>{console.error('brain load failed',e)});"
+              s = s.replace(marker, inject)
+          old_start = "const shell=new THREE.MeshPhysicalMaterial"
+          if old_start in s and "if(!this.realBrainModel){const shell=" not in s:
+              s = s.replace(old_start, "if(!this.realBrainModel){const shell=new THREE.MeshPhysicalMaterial", 1)
+              s = s.replace("this.group.add(this.points);", "this.group.add(this.points);}", 1)
+          s = s.replace('active?.83:dim?.25:.54', 'active ? .83 : dim ? .25 : .54')
+          s = s.replace('active?.78:.18', 'active ? .78 : .18')
+          p.write_text(s)
+          PY
           mkdir -p assets
           curl -L --fail --retry 3 -o assets/brain.glb https://raw.githubusercontent.com/itayinbarr/brainproject/main/brain-atlas/models/brain.glb
 
