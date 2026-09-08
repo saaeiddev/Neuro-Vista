@@ -5,10 +5,14 @@ s = p.read_text()
 
 three_import = "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';"
 loader_import = "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
+draco_import = "import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/DRACOLoader.js?module';"
+
 if 'GLTFLoader' not in s:
-    s = s.replace(three_import, three_import + '\n' + loader_import)
+    s = s.replace(three_import, three_import + '\n' + loader_import + '\n' + draco_import)
 else:
     s = s.replace("import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';", loader_import)
+    if 'DRACOLoader' not in s:
+        s = s.replace(loader_import, loader_import + '\n' + draco_import)
 
 marker = "this.group=new THREE.Group();this.group.rotation.set(.08,-.12,0);this.scene.add(this.group);"
 start = s.find(marker)
@@ -19,13 +23,23 @@ if start != -1:
         prefix = s[:after]
         suffix = s[shell_idx:]
         inject = """
-this.realBrainModel=true;
+this.realBrainModel=false;
 this.regionMeshes={};
+const draco=new DRACOLoader();
+draco.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/libs/draco/');
+draco.preload();
 const loader=new GLTFLoader();
+loader.setDRACOLoader(draco);
 loader.load('assets/brain.glb',g=>{
   const root=g.scene;
   root.name='AnatomicalBrain';
+
+  // Keep the procedural brain visible until the real model is fully decoded.
+  // Once ready, replace the fallback instead of risking an empty viewer.
+  this.group.children.forEach(c=>{c.visible=false});
   this.group.add(root);
+  this.realBrainModel=true;
+
   root.updateMatrixWorld(true);
   const box0=new THREE.Box3().setFromObject(root);
   const size0=box0.getSize(new THREE.Vector3());
@@ -43,6 +57,7 @@ loader.load('assets/brain.glb',g=>{
     o.localToWorld(c);
     all.push({o:o,c:c,name:(o.name+' '+((o.parent&&o.parent.name)||'')).toLowerCase()});
   }});
+
   const bbox=new THREE.Box3().setFromObject(root);
   const bsize=bbox.getSize(new THREE.Vector3());
   const bmin=bbox.min;
@@ -73,25 +88,39 @@ loader.load('assets/brain.glb',g=>{
     if(n.y<.48)return 'Temporal Lobe';
     return 'Parietal Lobe';
   };
+
   this.meshes={};
   all.forEach(item=>{
     const o=item.o;
     const region=byName(item.name)||byPosition(item.c);
     const col=new THREE.Color(colors[region]);
-    o.material=new THREE.MeshPhysicalMaterial({color:col,emissive:col,emissiveIntensity:.12,roughness:.36,metalness:.015,clearcoat:.52,clearcoatRoughness:.24,transparent:true,opacity:.90,side:THREE.DoubleSide});
+    o.material=new THREE.MeshPhysicalMaterial({
+      color:col,
+      emissive:col,
+      emissiveIntensity:.10,
+      roughness:.40,
+      metalness:.01,
+      clearcoat:.35,
+      clearcoatRoughness:.28,
+      transparent:true,
+      opacity:.94,
+      side:THREE.DoubleSide
+    });
     o.userData.region=region;
     if(!this.regionMeshes[region])this.regionMeshes[region]=[];
     this.regionMeshes[region].push(o);
     if(!this.meshes[region])this.meshes[region]=o;
   });
-},undefined,e=>console.error('Brain model failed to load',e));
+},undefined,e=>{
+  console.error('Brain model failed to load',e);
+  this.realBrainModel=false;
+});
 """
-        if 'this.realBrainModel=true;' not in prefix:
-            suffix = suffix.replace('const shell=new THREE.MeshPhysicalMaterial', 'if(!this.realBrainModel){const shell=new THREE.MeshPhysicalMaterial', 1)
-            suffix = suffix.replace('this.group.add(this.points);', 'this.group.add(this.points);}', 1)
-            s = prefix + inject + suffix
+        # Do NOT disable the procedural model. It acts as a visible fallback until
+        # the Draco-compressed anatomical GLB has actually loaded successfully.
+        s = prefix + inject + suffix
 
-s = s.replace("const h=this.ray.intersectObjects(Object.values(this.meshes),false)[0];this.hover=h?.object.userData.region||null;", "const hitTargets=this.regionMeshes?Object.values(this.regionMeshes).flat():Object.values(this.meshes);const h=this.ray.intersectObjects(hitTargets,false)[0];this.hover=h?.object.userData.region||null;")
+s = s.replace("const h=this.ray.intersectObjects(Object.values(this.meshes),false)[0];this.hover=h?.object.userData.region||null;", "const hitTargets=this.regionMeshes&&Object.keys(this.regionMeshes).length?Object.values(this.regionMeshes).flat():Object.values(this.meshes);const h=this.ray.intersectObjects(hitTargets,false)[0];this.hover=h?.object.userData.region||null;")
 s = s.replace('active?.83:dim?.25:.54','active ? .83 : dim ? .25 : .54')
 s = s.replace('active?.78:.18','active ? .78 : .18')
 p.write_text(s)
