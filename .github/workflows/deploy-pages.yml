@@ -24,15 +24,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Prepare real anatomical brain
+      - name: Prepare anatomical brain with region colors
         run: |
-          mkdir -p models
-          curl -L --fail --retry 3 \
-            https://raw.githubusercontent.com/itayinbarr/brainproject/main/brain-atlas/models/brain.glb \
-            -o models/brain.glb
-          python scripts/upgrade_real_brain.py
-          test -s models/brain.glb
-          grep -q 'REAL_ANATOMICAL_BRAIN_V2' index.html
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          if "GLTFLoader" not in s:
+              s = s.replace(
+                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';",
+                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';\nimport { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';"
+              )
+          marker = "this.group=new THREE.Group();this.group.rotation.set(.08,-.12,0);this.scene.add(this.group);"
+          if marker in s and "realBrainModel" not in s:
+              inject = marker + "\nthis.realBrainModel=true;const loader=new GLTFLoader();loader.load('assets/brain.glb',g=>{const root=g.scene;root.name='AnatomicalBrain';const box=new THREE.Box3().setFromObject(root),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());root.position.sub(center);const scale=2.65/Math.max(size.x,size.y,size.z);root.scale.setScalar(scale);root.rotation.set(.05,-.35,0);this.group.add(root);const palette=[0x35b7ff,0x58efb5,0xffb33b,0xaa70ff,0xff86b9,0x45e6ff,0x4f8cff,0x7be6ff,0x65d6a5,0xf59a3d,0xc26cff,0xff6fa7];let idx=0;root.traverse(o=>{if(o.isMesh){const c=palette[idx++%palette.length];o.material=new THREE.MeshPhysicalMaterial({color:c,emissive:c,emissiveIntensity:.08,roughness:.42,metalness:.02,transparent:true,opacity:.92,clearcoat:.35,clearcoatRoughness:.32});o.userData.regionMesh=true;}});this.meshes={};const meshes=[];root.traverse(o=>{if(o.isMesh)meshes.push(o)});const names=['Frontal Lobe','Parietal Lobe','Temporal Lobe','Occipital Lobe','Cerebellum','Brain Stem'];names.forEach((n,i)=>{if(meshes[i]){meshes[i].userData.region=n;this.meshes[n]=meshes[i]}});},undefined,()=>{});"
+              s = s.replace(marker, inject)
+          old_start = "const shell=new THREE.MeshPhysicalMaterial"
+          if old_start in s and "if(!this.realBrainModel){const shell=" not in s:
+              s = s.replace(old_start, "if(!this.realBrainModel){const shell=new THREE.MeshPhysicalMaterial", 1)
+              s = s.replace("this.group.add(this.points);", "this.group.add(this.points);}", 1)
+          s = s.replace('active?.83:dim?.25:.54', 'active ? .83 : dim ? .25 : .54')
+          s = s.replace('active?.78:.18', 'active ? .78 : .18')
+          p.write_text(s)
+          PY
+          mkdir -p assets
+          curl -L --fail --retry 3 -o assets/brain.glb https://raw.githubusercontent.com/itayinbarr/brainproject/main/brain-atlas/models/brain.glb
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
