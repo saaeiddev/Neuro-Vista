@@ -23,14 +23,55 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Configure and enable Pages
+
+      - name: Upgrade anatomical 3D brain
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text()
+
+          replacement = r'''function noise(x,y,z){return Math.sin(x*7.4+y*4.1+z*5.8)*.032+Math.sin(x*16.7-y*8.2+z*12.4)*.014}
+function brainBase(side){const g=new THREE.SphereGeometry(1,96,72),p=g.attributes.position;for(let i=0;i<p.count;i++){let x=p.getX(i),y=p.getY(i),z=p.getZ(i);const n=noise(x,y,z);const ax=Math.abs(x);x=x*(.72+n*.65);y=y*(.93+n*.45)+.10;z=z*(1.16+n*.5);const front=Math.max(0,z);x*=1+.08*front;y*=1+.05*front;const back=Math.max(0,-z);x*=1-.04*back;if(y<-.48)y=-.48+(y+.48)*.58;x+=side*.34;p.setXYZ(i,x,y,z)}g.computeVertexNormals();return g}
+function regionGeom(scale){const g=new THREE.SphereGeometry(1,56,42);g.scale(...scale);return g}
+function addGyri(group,side){const mat=new THREE.MeshBasicMaterial({color:0xbcecff,transparent:true,opacity:.16,depthWrite:false});for(let j=0;j<22;j++){const pts=[];const lat=-.68+(j%11)*.135;const phase=j*.83+side*.4;const backBias=j>10?.12:-.04;for(let k=0;k<42;k++){const t=-1.22+k*(2.44/41);const xx=side*.34+side*(.59+.045*Math.sin(t*5+phase))*Math.cos(t);const zz=(1.03+.04*Math.cos(t*4+phase))*Math.sin(t)+backBias;const yy=lat+.07*Math.sin(t*3.2+phase)+.035*Math.sin(t*8.4-phase);pts.push(new THREE.Vector3(xx,yy,zz))}const curve=new THREE.CatmullRomCurve3(pts);const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,90,.012,5,false),mat.clone());group.add(tube)}for(let j=0;j<7;j++){const pts=[];const phase=j*.71;for(let k=0;k<34;k++){const t=-.78+k*(1.56/33);const xx=side*.34+side*(.62+.035*Math.cos(t*5+phase))*Math.cos(t);const yy=t+.06*Math.sin(t*5+phase);const zz=.78*Math.sin(phase+t*1.8)-.10+.04*Math.cos(t*7);pts.push(new THREE.Vector3(xx,yy,zz))}const curve=new THREE.CatmullRomCurve3(pts);group.add(new THREE.Mesh(new THREE.TubeGeometry(curve,72,.010,5,false),mat.clone()))}}
+class BrainScene{constructor(el,{compact=false,onSelect=null}={}){this.el=el;this.compact=compact;this.onSelect=onSelect;this.selected=null;this.hover=null;this.layers=true;this.neural=true;this.pointer=new THREE.Vector2();this.ray=new THREE.Raycaster();this.dragging=false;this.targetX=-.20;this.targetY=.10;this.meshes={};this.init()}
+init(){this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(this.compact?32:36,1,.1,100);this.camera.position.set(.15,.12,this.compact?6.9:6.35);this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.setClearColor(0x000000,0);this.el.innerHTML='';this.el.appendChild(this.renderer.domElement);this.group=new THREE.Group();this.group.rotation.set(.08,-.28,0);this.group.scale.set(1.16,1.12,1.16);this.scene.add(this.group);
+const cortexMat=new THREE.MeshPhysicalMaterial({color:0x85dfff,roughness:.29,metalness:.02,transparent:true,opacity:.17,transmission:.32,thickness:.38,clearcoat:1,clearcoatRoughness:.18,side:THREE.DoubleSide});const wire=new THREE.MeshBasicMaterial({color:0x55c8ff,wireframe:true,transparent:true,opacity:.038});[-1,1].forEach(side=>{const g=brainBase(side);const m=new THREE.Mesh(g,cortexMat.clone());this.group.add(m);const w=new THREE.Mesh(g.clone(),wire.clone());w.scale.setScalar(1.006);this.group.add(w);addGyri(this.group,side)});
+const fissure=new THREE.Mesh(new THREE.CapsuleGeometry(.045,1.55,8,16),new THREE.MeshBasicMaterial({color:0x010914,transparent:true,opacity:.82}));fissure.rotation.x=Math.PI/2;fissure.position.set(0,.16,.05);fissure.scale.set(.65,1,1.45);this.group.add(fissure);
+const specs=[['Frontal Lobe',[-.48,.22,.61],[.63,.72,.58]],['Parietal Lobe',[.33,.51,.16],[.60,.56,.64]],['Temporal Lobe',[-.43,-.30,.26],[.61,.34,.57]],['Occipital Lobe',[.36,.12,-.72],[.42,.53,.40]],['Cerebellum',[.24,-.61,-.67],[.43,.29,.38]],['Brain Stem',[.02,-.88,-.20],[.17,.45,.16]]];for(const [name,pos,scale] of specs){const c=new THREE.Color(regions[name].color);const mat=new THREE.MeshPhysicalMaterial({color:c,emissive:c,emissiveIntensity:.16,roughness:.35,metalness:.02,transparent:true,opacity:.38,transmission:.22,depthWrite:false});const m=new THREE.Mesh(regionGeom(scale),mat);m.position.set(...pos);m.userData.region=name;this.meshes[name]=m;this.group.add(m)}
+const cbMat=new THREE.MeshPhysicalMaterial({color:0xff85b8,roughness:.38,transparent:true,opacity:.22,transmission:.18,depthWrite:false});for(let i=-5;i<=5;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(.31,.016,6,48,Math.PI*1.55),cbMat.clone());c.position.set(.23+i*.012,-.62,-.68+i*.006);c.rotation.set(Math.PI/2,.05,i*.055);this.group.add(c)}
+const count=this.compact?260:650,arr=new Float32Array(count*3);for(let i=0;i<count;i++){const t=Math.random()*Math.PI*2,u=Math.acos(2*Math.random()-1),r=.92+Math.random()*.30;arr[i*3]=Math.cos(t)*Math.sin(u)*r*.82;arr[i*3+1]=Math.cos(u)*r*.9+.10;arr[i*3+2]=Math.sin(t)*Math.sin(u)*r*1.08}const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(arr,3));this.points=new THREE.Points(pg,new THREE.PointsMaterial({color:0x9cecff,size:.018,transparent:true,opacity:.64,blending:THREE.AdditiveBlending,depthWrite:false}));this.group.add(this.points);
+const key=new THREE.PointLight(0x82ddff,12,13);key.position.set(-3.5,2.6,5);this.scene.add(key);const rim=new THREE.PointLight(0x7c5cff,8,10);rim.position.set(4,1,-2);this.scene.add(rim);const fill=new THREE.PointLight(0x4fffd5,5,8);fill.position.set(2,3,2);this.scene.add(fill);this.scene.add(new THREE.AmbientLight(0x0a2038,2.8));
+this.canvas=this.renderer.domElement;this.move=e=>{const r=this.canvas.getBoundingClientRect();this.pointer.x=((e.clientX-r.left)/r.width)*2-1;this.pointer.y=-((e.clientY-r.top)/r.height)*2+1;if(this.dragging){this.targetX+=(e.clientX-this.lastX)*.008;this.targetY+=(e.clientY-this.lastY)*.006;this.lastX=e.clientX;this.lastY=e.clientY;return}this.ray.setFromCamera(this.pointer,this.camera);const h=this.ray.intersectObjects(Object.values(this.meshes),false)[0];this.hover=h?.object.userData.region||null;this.canvas.style.cursor=this.hover?'pointer':'grab'};this.down=e=>{this.dragging=true;this.lastX=e.clientX;this.lastY=e.clientY;this.canvas.setPointerCapture?.(e.pointerId)};this.up=e=>{this.dragging=false;this.canvas.releasePointerCapture?.(e.pointerId)};this.click=()=>{if(this.hover&&this.onSelect)this.onSelect(this.hover)};this.wheel=e=>{e.preventDefault();this.camera.position.z=THREE.MathUtils.clamp(this.camera.position.z+e.deltaY*.002,4.6,8.6)};this.canvas.addEventListener('pointermove',this.move);this.canvas.addEventListener('pointerdown',this.down);this.canvas.addEventListener('pointerup',this.up);this.canvas.addEventListener('click',this.click);this.canvas.addEventListener('wheel',this.wheel,{passive:false});this.ro=new ResizeObserver(()=>this.resize());this.ro.observe(this.el);this.clock=new THREE.Clock();this.animate()}
+resize(){const w=this.el.clientWidth||1,h=this.el.clientHeight||1;this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix()}
+animate(){const t=this.clock.getElapsedTime();if(!this.dragging&&!reduced)this.targetX+=.0008;this.group.rotation.y+=(this.targetX-this.group.rotation.y)*.055;this.group.rotation.x+=(this.targetY-this.group.rotation.x)*.055;if(!reduced)this.group.position.y=Math.sin(t*.8)*.028;for(const [k,m] of Object.entries(this.meshes)){const active=this.selected===k||this.hover===k;const dim=(this.selected||this.hover)&&!active;m.material.opacity=this.layers?(active ? .66 : dim ? .14 : .38):0;m.material.emissiveIntensity=active ? .58 : .16;const sc=active?1.045:1;m.scale.lerp(new THREE.Vector3(sc,sc,sc),.08)}this.points.visible=this.neural;this.renderer.render(this.scene,this.camera);this.raf=requestAnimationFrame(()=>this.animate())}
+setSelected(name){this.selected=name}
+reset(){this.targetX=-.20;this.targetY=.10;this.camera.position.z=this.compact?6.9:6.35}
+fullscreen(){this.el.parentElement?.requestFullscreen?.()}
+}
+const scenes={};'''
+
+          pattern = r"function noise\(x,y,z\).*?const scenes=\{\};"
+          s2, n = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit('BrainScene replacement target not found')
+          s2 = s2.replace('active?.83:dim?.25:.54', 'active ? .83 : dim ? .25 : .54')
+          s2 = s2.replace('active?.78:.18', 'active ? .78 : .18')
+          p.write_text(s2)
+          print('Upgraded anatomical brain scene successfully')
+          PY
+
+      - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
