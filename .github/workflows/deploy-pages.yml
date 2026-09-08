@@ -30,10 +30,14 @@ jobs:
           from pathlib import Path
           p = Path('index.html')
           s = p.read_text()
+          s = s.replace(
+              "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';",
+              "import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
+          )
           if "GLTFLoader" not in s:
               s = s.replace(
                   "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';",
-                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';\nimport { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js';"
+                  "import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js';\nimport { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/loaders/GLTFLoader.js?module';"
               )
           marker = "this.group=new THREE.Group();this.group.rotation.set(.08,-.12,0);this.scene.add(this.group);"
           if marker in s and "realBrainModel" not in s:
