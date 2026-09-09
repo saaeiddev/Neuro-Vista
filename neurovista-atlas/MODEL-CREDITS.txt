@@ -1,0 +1,17 @@
+NeuroVista Atlas anatomical model credits
+
+3D anatomy: Z-Anatomy / BodyParts3D, copyright DBCLS and contributors.
+Model compiled and extended by Itay Inbar's Brain Project:
+https://github.com/itayinbarr/brainproject
+Asset license: Creative Commons Attribution-ShareAlike 4.0
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Model and all derived renders (brain-poster.webp) remain CC BY-SA 4.0.
+Illustrative colors applied at runtime. Gross-anatomy educational visualization,
+not clinical or diagnostic. Registered deep structures are approximate.
+Additional imaging registrations: CIT168 subcortical atlas (Pauli, Nili & Tyszka
+2018, CC BY 4.0); CIT168 amygdala atlas (Tyszka & Pauli 2016, CC BY-SA 4.0);
+Najdenovska et al. 2018 thalamic atlas (CC BY-SA 4.0); Neudorfer et al. 2020
+hypothalamic atlas (CC BY 4.0); HCP1065 white-matter tract templates.
+Full source notices: https://github.com/itayinbarr/brainproject#attribution--licence
+Neural-network illustration: AI-generated, not microscopy.

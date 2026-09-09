@@ -1,0 +1,1 @@
+{"extends":"./tsconfig.json","include":["app/entry.tsx","app/neurovista.tsx","app/brain-scene.tsx","app/data.ts","components/ui/dialog.tsx","lib/utils.ts"],"exclude":["node_modules"]}
