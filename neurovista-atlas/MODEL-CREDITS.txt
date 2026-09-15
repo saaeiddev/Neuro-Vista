@@ -15,3 +15,9 @@ Najdenovska et al. 2018 thalamic atlas (CC BY-SA 4.0); Neudorfer et al. 2020
 hypothalamic atlas (CC BY 4.0); HCP1065 white-matter tract templates.
 Full source notices: https://github.com/itayinbarr/brainproject#attribution--licence
 Neural-network illustration: AI-generated, not microscopy.
+
+Transparent anatomical head shell:
+Lee Perry-Smith 3D Head Scan / Infinite Realities, distributed with Three.js examples.
+Source: https://github.com/mrdoob/three.js/tree/r186/examples/models/gltf/LeePerrySmith
+License: Creative Commons Attribution 3.0 Unported (CC BY 3.0).
+The original scan geometry is rendered with a custom transparent glass material at runtime.
