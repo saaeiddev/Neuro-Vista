@@ -64,6 +64,19 @@ jobs:
       - name: Build NeuroVista Atlas from saved source
         working-directory: neurovista-atlas-source
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app/brain-scene.tsx')
+          s = p.read_text()
+          old_head = "const headShell=new T.Group();headShell.position.set(.52,-.42,0);headShell.rotation.y=-.05;scene.add(headShell);const headMeshes:T.Mesh[]=[];"
+          new_head = "const headShell=new T.Group();headShell.position.set(.08,-2.06,-.12);headShell.rotation.y=0;scene.add(headShell);const headMeshes:T.Mesh[]=[];"
+          old_pivot = "pivot.scale.setScalar(5.7/Math.max(size.y,.001));pivot.rotation.y=Math.PI/2;"
+          new_pivot = "pivot.scale.setScalar(7.31/Math.max(size.y,.001));pivot.rotation.y=0;"
+          if old_head not in s or old_pivot not in s:
+              raise SystemExit('Expected glass-head calibration markers were not found; refusing to alter unrelated code.')
+          s = s.replace(old_head, new_head, 1).replace(old_pivot, new_pivot, 1)
+          p.write_text(s)
+          PY
           rm -rf public pages-dist
           mkdir -p public
           cp -R ../neurovista-atlas/models public/
