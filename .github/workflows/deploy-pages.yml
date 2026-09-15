@@ -71,6 +71,8 @@ jobs:
           cp ../neurovista-atlas/neural.webp public/
           cp ../neurovista-atlas/brain-poster.webp public/
           cp ../neurovista-atlas/MODEL-CREDITS.txt public/
+          curl -L --fail --retry 3 -o public/models/head.glb https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb
+          curl -L --fail --retry 3 -o public/models/HEAD-MODEL-LICENSE.txt https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/models/gltf/LeePerrySmith/LeePerrySmith_License.txt
           npm ci --ignore-scripts
           npx vite build --config vite.pages.config.ts
           rm -rf ../neurovista-atlas
