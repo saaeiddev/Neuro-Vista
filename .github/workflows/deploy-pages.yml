@@ -54,6 +54,29 @@ jobs:
           mkdir -p assets
           curl -L --fail --retry 3 -o assets/brain.glb https://raw.githubusercontent.com/itayinbarr/brainproject/main/brain-atlas/models/brain.glb
 
+      - name: Setup Node for NeuroVista Atlas
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: neurovista-atlas-source/package-lock.json
+
+      - name: Build NeuroVista Atlas from saved source
+        working-directory: neurovista-atlas-source
+        run: |
+          rm -rf public pages-dist
+          mkdir -p public
+          cp -R ../neurovista-atlas/models public/
+          cp -R ../neurovista-atlas/draco public/
+          cp ../neurovista-atlas/neural.webp public/
+          cp ../neurovista-atlas/brain-poster.webp public/
+          cp ../neurovista-atlas/MODEL-CREDITS.txt public/
+          npm ci --ignore-scripts
+          npx vite build --config vite.pages.config.ts
+          rm -rf ../neurovista-atlas
+          mv pages-dist ../neurovista-atlas
+          rm -rf node_modules public
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
