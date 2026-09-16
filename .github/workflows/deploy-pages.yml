@@ -78,6 +78,29 @@ jobs:
               raise SystemExit('Expected NeuroVista calibration markers were not found; refusing to alter unrelated code.')
           s = s.replace(old_head, new_head, 1).replace(old_pivot, new_pivot, 1).replace(old_brain, new_brain, 1)
           p.write_text(s)
+
+          # Attach the neurotransmitter visualization only to the existing neuron page.
+          n = Path('app/neuron-scene.tsx')
+          ns = n.read_text()
+          import_line = "import NeurotransmitterScene from './neurotransmitter-scene';"
+          if import_line not in ns:
+              if "'use client';" not in ns:
+                  raise SystemExit('Expected neuron component marker was not found; refusing to alter unrelated code.')
+              ns = ns.replace("'use client';", "'use client';\n" + import_line, 1)
+          if '<NeurotransmitterScene/>' not in ns:
+              start = 'return <section className="neuron-section">'
+              end = '</a></p></section>;'
+              if start not in ns or end not in ns:
+                  raise SystemExit('Expected neuron layout markers were not found; refusing to alter unrelated code.')
+              ns = ns.replace(start, 'return <><section className="neuron-section">', 1)
+              pos = ns.rfind(end)
+              ns = ns[:pos] + '</a></p></section><NeurotransmitterScene/></>;' + ns[pos + len(end):]
+          n.write_text(ns)
+
+          # Keep ternaries unambiguous for the TypeScript parser.
+          nt = Path('app/neurotransmitter-scene.tsx')
+          nts = nt.read_text().replace('active?.86', 'active ? .86').replace('active?.05', 'active ? .05').replace('active?.8', 'active ? .8')
+          nt.write_text(nts)
           PY
           rm -rf public pages-dist
           mkdir -p public
